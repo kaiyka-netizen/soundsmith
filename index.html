@@ -88,6 +88,8 @@ button.primary:hover{filter:brightness(1.08);}
 #list{overflow-y:auto; flex:1; padding:12px 18px;}
 .track{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin-bottom:6px; }
 .track .row{display:flex; align-items:center; gap:10px;}
+.track .grip{flex:none; cursor:grab; color:var(--sub); font-size:13px; user-select:none;}
+.track:active .grip{cursor:grabbing;}
 .track .pbtn{ width:38px; height:38px; flex:none; border-radius:50%; border:none; background:var(--accentGrad); color:#fff; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .track .meta{flex:1; min-width:0;}
 .track .nm{font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -381,6 +383,7 @@ el.className="track";
 const folderName=folderById(t.folderId)?.name||"未分類";
 el.innerHTML=`
 <div class="row">
+<span class="grip" title="DAW・デスクトップへドラッグ">⣿</span>
 <button class="pbtn" data-play>▶</button>
 <div class="meta">
 <div class="nm">${escapeHtml(t.name)}</div>
@@ -399,6 +402,22 @@ requestAnimationFrame(()=>drawWave(t));
 canvas.onclick=e=>{const r=canvas.getBoundingClientRect(); seek(t,(e.clientX-r.left)/r.width);};
 el.querySelector("[data-play]").onclick=()=>togglePlay(t);
 el.querySelector("[data-del]").onclick=()=>removeTrack(t);
+// ===== drag-out to DAW / OS file drop (Chromium) =====
+el.draggable=true;
+el.addEventListener("dragstart",ev=>{
+if(ev.target.closest("button")){ev.preventDefault(); return;}
+if(!t.blob){ev.preventDefault(); return;}
+try{
+const mime=(t.blob&&t.blob.type)||"audio/wav";
+const safe=(t.name||"sound.wav").replace(/:/g,"_");
+const url=URL.createObjectURL(t.blob);
+ev.dataTransfer.setData("DownloadURL",mime+":"+safe+":"+url);
+ev.dataTransfer.setData("text/uri-list",url);
+ev.dataTransfer.effectAllowed="copy";
+t._dragUrl=url;
+}catch(err){console.error(err);}
+});
+el.addEventListener("dragend",()=>{if(t._dragUrl){setTimeout(()=>URL.revokeObjectURL(t._dragUrl),1500); t._dragUrl=null;}});
 return el;
 }
 function escapeHtml(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
